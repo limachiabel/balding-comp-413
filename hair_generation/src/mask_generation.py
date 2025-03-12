@@ -8,13 +8,17 @@ def bezier_curve(p0, p1, p2, t):
 
 def generate_bezier_hair_mask(width=512, height=512, num_hairs=200):
     mask = np.zeros((height, width), dtype=np.uint8)
-    border_points = np.array([[0, i] for i in np.arange(0, height)] + [[i, 0] for i in np.arange(0, height)])
+    border_points = np.array([[0, i] for i in np.arange(0, height)] + 
+                             [[i, 0] for i in np.arange(0, height)] +
+                             [[height, i] for i in np.arange(0, width)] +
+                             [[i, width] for i in np.arange(0, height)]
+                             )
     # np.array([random.randint(0, i), width] for i in np.arange(0, width))
     for _ in range(num_hairs):
         p0 = random.choice(border_points)
         # p0 = np.array([random.randint(0, width), random.randint(0, height)])
-        p1 = p0 + np.array([random.randint(-200, 200), random.randint(-200, 200)])
-        p2 = p0 + np.array([random.randint(-200, 200), random.randint(-200, 200)])
+        p1 = p0 + np.array([random.randint(-500, 500), random.randint(-500, 500)])
+        p2 = p0 + np.array([random.randint(-500, 500), random.randint(-500, 500)])
 
         curve_points = np.array([bezier_curve(p0, p1, p2, t).astype(int) for t in np.linspace(0, 1, 100)])
 
@@ -27,7 +31,7 @@ def generate_bezier_hair_mask(width=512, height=512, num_hairs=200):
         cv2.polylines(mask, [curve_points], isClosed=False, color=255, thickness=thickness)
     return mask 
 
-mask = generate_bezier_hair_mask(1024, 1024, 400)
+mask = generate_bezier_hair_mask(1024, 1024, 10)
 cv2.imshow('hair_mask', mask)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
