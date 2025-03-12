@@ -32,9 +32,22 @@ def generate_bezier_hair_mask(width=512, height=512, num_hairs=200):
     return mask 
 
 mask = generate_bezier_hair_mask(1024, 1024, 10)
-cv2.imshow('hair_mask', mask)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-cv2.imwrite('images/masks/mask.png', mask)
+
+def show_mask(mask, prompt_save=False):
+    cv2.imshow('hair_mask', mask)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    if prompt_save:
+        save = input('Save mask? (y/n): ')
+        if save.lower() == 'y':
+            filename = input('Enter filename: ')
+            cv2.imwrite(f'hair_generation/images/masks/{filename}.png', mask)
+            print('Mask saved successfully!')
+
+if __name__ == '__main__':
+    mask = generate_bezier_hair_mask(1024, 1024, 10)
+    show_mask(mask, prompt_save=True)
+
+
 
 
