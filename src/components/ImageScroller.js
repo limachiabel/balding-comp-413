@@ -4,6 +4,10 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card"; 
 import { ScrollArea } from "./ui/scroll-area"; 
 import { Upload } from "lucide-react";
+import lambda from './lambda.js';
+
+
+
 
 export default function ImageScroller() {
   const [images, setImages] = useState([]);
@@ -79,6 +83,13 @@ export default function ImageScroller() {
             </Card>
           ))}
         </div>
+        <Button 
+  className="mb-4 bg-green-600 text-white px-4 py-2 rounded-md"
+  onClick={lambda}
+>
+  Run Lambda
+</Button>
+
       </ScrollArea>
     </div>
   );
