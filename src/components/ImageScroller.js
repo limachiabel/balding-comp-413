@@ -13,6 +13,7 @@ export default function ImageScroller() {
   const [recipientEmail, setRecipientEmail] = useState("");
   const [selectedImage, setSelectedImage] = useState(null);
   const [note, setNote] = useState("");
+  const [selectedForLambda, setSelectedForLambda] = useState([]);
   const noteRef = useRef(null);
 
   useEffect(() => {
@@ -73,12 +74,12 @@ export default function ImageScroller() {
 
   const handleSaveNote = async () => {
     if (!selectedImage || !note) return;
-    
-    const url = new URL(selectedImage);
-    const imageKey = decodeURIComponent(url.pathname.slice(1)); // remove leading slash
 
+    const url = new URL(selectedImage);
+    const imageKey = decodeURIComponent(url.pathname.slice(1));
     const noteKey = imageKey.replace(/\.(jpg|jpeg|png)$/i, ".note.json");
     console.log(imageKey);
+
     try {
       await s3.upload({
         Bucket: S3_BUCKET,
@@ -93,6 +94,20 @@ export default function ImageScroller() {
 
     setNote("");
     setSelectedImage(null);
+  };
+
+  const handleLambda = () => {
+    const selectedKeys = selectedForLambda.map(url => {
+      const key = new URL(url).pathname.slice(1);
+      return decodeURIComponent(key);
+    });
+    lambda(selectedKeys);
+  };
+
+  const toggleImageSelection = (src) => {
+    setSelectedForLambda(prev =>
+      prev.includes(src) ? prev.filter(item => item !== src) : [...prev, src]
+    );
   };
 
   useEffect(() => {
@@ -153,9 +168,9 @@ export default function ImageScroller() {
 
         <Button
           style={{ marginBottom: "1rem", backgroundColor: "#16a34a", color: "white", padding: "0.5rem 1rem", borderRadius: "0.375rem" }}
-          onClick={lambda}
+          onClick={handleLambda}
         >
-          Run Lambda
+          Call Lambda on Selected
         </Button>
 
         <ScrollArea
@@ -175,8 +190,8 @@ export default function ImageScroller() {
             {images.map((src, index) => (
               <div
                 key={index}
-                style={{ cursor: "pointer", minWidth: "300px", padding: "8px", border: "1px solid #ddd", borderRadius: "8px", backgroundColor: "#fafafa" }}
-                onClick={() => setSelectedImage(src)}
+                style={{ cursor: "pointer", minWidth: "300px", padding: "8px", border: selectedForLambda.includes(src) ? "2px solid #2563eb" : "1px solid #ddd", borderRadius: "8px", backgroundColor: "#fafafa" }}
+                onClick={() => toggleImageSelection(src)}
               >
                 <img
                   src={src}
