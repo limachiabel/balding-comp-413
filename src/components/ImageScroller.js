@@ -75,7 +75,7 @@ export default function ImageScroller() {
     if (!selectedImage || !note) return;
     
     const url = new URL(selectedImage);
-  const imageKey = decodeURIComponent(url.pathname.slice(1)); // remove leading slash
+    const imageKey = decodeURIComponent(url.pathname.slice(1)); // remove leading slash
 
     const noteKey = imageKey.replace(/\.(jpg|jpeg|png)$/i, ".note.json");
     console.log(imageKey);
