@@ -33,7 +33,12 @@ export default function ImageScroller() {
               Key: obj.Key,
               Expires: 60 * 5
             })
-          ) || [];
+          ).filter((url) => {
+            const removed_query = url.substring(0, url.indexOf("?"))
+            return removed_query.endsWith(".jpg")
+          }) || [];
+
+          console.log(urls)
 
           setImages(urls);
         } catch (error) {
@@ -96,12 +101,37 @@ export default function ImageScroller() {
     setSelectedImage(null);
   };
 
-  const handleLambda = () => {
+  const handleLambda = async () => {
     const selectedKeys = selectedForLambda.map(url => {
       const key = new URL(url).pathname.slice(1);
       return decodeURIComponent(key);
     });
-    lambda(selectedKeys);
+    await lambda(selectedKeys);
+
+    /* Copied Code... */
+    try {
+      const response = await s3.listObjectsV2({
+        Bucket: S3_BUCKET,
+        Prefix: `${userEmail}`
+      }).promise();
+
+      const urls = response.Contents?.map(obj =>
+        s3.getSignedUrl("getObject", {
+          Bucket: S3_BUCKET,
+          Key: obj.Key,
+          Expires: 60 * 5
+        })
+      ).filter((url) => {
+        const removed_query = url.substring(0, url.indexOf("?"))
+        return removed_query.endsWith(".jpg")
+      }) || [];
+
+      console.log(urls)
+
+      setImages(urls);
+    } catch (error) {
+      console.error("Error listing objects:", error);
+    }
   };
 
   const toggleImageSelection = (src) => {
@@ -170,7 +200,7 @@ export default function ImageScroller() {
           style={{ marginBottom: "1rem", backgroundColor: "#16a34a", color: "white", padding: "0.5rem 1rem", borderRadius: "0.375rem" }}
           onClick={handleLambda}
         >
-          Call Lambda on Selected
+          Remove Artifacts from Selected Images
         </Button>
 
         <ScrollArea
