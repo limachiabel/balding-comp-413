@@ -9,6 +9,7 @@ from sklearn.metrics import jaccard_score
 from skimage.color.adapt_rgb import adapt_rgb, each_channel
 from scipy import ndimage as ndi
 import sys
+import statistics
 
 def evaluate_masks(masked_img_path, mask_gt_path):
     ''' 
@@ -18,20 +19,49 @@ def evaluate_masks(masked_img_path, mask_gt_path):
     Args:
     - masked_img_path: The path to the jpg image of the predicted mask.
     - gt_masks_roots (list(str)): The path to the jpg image of the ground truth.
-            
+
     Returns:
     - Mean scorefor the full set.
     '''
-    print("running....")
+
     predicted_mask = io.imread(masked_img_path)
     gt_mask = io.imread(mask_gt_path)
-    score = jaccard_score(np.ndarray.flatten(gt_mask),np.ndarray.flatten(predicted_mask), average="micro")
-    statement = 'Jaccard Index: '+ str(score) + '!'
-    print(statement)
-    with open("output.txt", "w") as file:
-        file.write(statement + "\n")
+    return jaccard_score(np.ndarray.flatten(gt_mask),np.ndarray.flatten(predicted_mask), average="micro")
+
+def evaluate_algorithm(algs, masked_img_paths, mask_gt_path):
+    footer = "=========================\n"
+
+    for i in range(len(algs)):
+      os.chdir(masked_img_paths[i])
+
+      header = "Testing " + algs[i] + " accuracy:\n=========================\n"
+
+      masks = os.listdir(".")
+      scores = []
+      for mask in masks:
+        scores.append(evaluate_masks(mask, os.path.join(mask_gt_path, mask)))
+      
+      avg_score = statistics.mean(scores)
+      std_dev = statistics.stdev(scores)
+      low, high = min(scores), max(scores)
+      statement = 'Jaccard Index:'
+      statement = '\tAVG:'+ str(avg_score) + '\n'
+      statement += '\tSTDDEV: '+ str(std_dev) + '\n'
+      statement += '\tLOW: '+ str(low) + '\n'
+      statement += '\tHIGH: '+ str(high) + '\n'
+
+      print(header)
+      print(statement + "\n")
+      print(footer)
+      
+      os.chdir("..")
 
 if __name__ == "__main__":
-  masked_img_path = sys.argv[1]
-  mask_gt_path = sys.argv[2]
-  evaluate_masks(masked_img_path, mask_gt_path)
+  testDir = "./test_data"
+  os.chdir(testDir)
+
+  masked_img_paths = ["dr_masks", "wavelet", "dhremoval", "gt_masks"]
+  algorithms = ["DullRazor", "Wavelet", "Digital Hair Removal", "ground_truth"]
+  mask_gt_path = "../gt_masks"
+
+  evaluate_algorithm(algorithms, masked_img_paths, mask_gt_path)
