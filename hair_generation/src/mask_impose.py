@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import random
 import sys
-from mask_generation import generate_bezier_hair_mask
+from mask_generation import generate_bezier_hair_mask, show_mask
 
 colors = {
     'black': (0, 0, 0),
@@ -10,7 +10,7 @@ colors = {
     'medium_brown': (42, 42, 128),
 }
 
-def impose_mask(image, mask, hair_color='dark_brown', alpha=0.5):
+def impose_mask(image, mask, hair_color='dark_brown', alpha=0.8):
     mask_3ch = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
 
     colored_hairs = np.full_like(image, colors[hair_color], dtype=np.uint8)
@@ -33,9 +33,12 @@ def run():
     image_height = image.shape[0]
 
     mask = generate_bezier_hair_mask(image_width, image_height, num_hairs, curvature)
+    saved_name, was_saved = show_mask(mask, prompt_save=True)
     masked_image = impose_mask(image, mask, hair_color=hair_color)
     cv2.imshow('masked_image', masked_image)
     cv2.waitKey(0)
+    if was_saved:
+        cv2.imwrite(f'../images/output/{saved_name}_imposed.png', masked_image)
     cv2.destroyAllWindows()
     cv2.imwrite('hair_generation/images/output/masked_image.png', masked_image)
 
