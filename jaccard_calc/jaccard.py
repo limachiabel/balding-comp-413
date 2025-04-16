@@ -11,6 +11,8 @@ from scipy import ndimage as ndi
 import sys
 import statistics
 
+from drazor import drazor
+
 def evaluate_masks(masked_img_path, mask_gt_path):
     ''' 
     It receives two images, one the predicted mask and the other the ground truth,
