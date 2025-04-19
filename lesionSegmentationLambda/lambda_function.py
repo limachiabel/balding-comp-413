@@ -1,16 +1,26 @@
 import matplotlib.pyplot as plt
 import numpy as np
-# import cv2
+from PIL import Image
 import json
 import io
 import boto3
+import sys
 from scipy import ndimage as ndi
 from sklearn.cluster import DBSCAN
+from skimage.segmentation import find_boundaries
 
-bucket_name = "balding"
+from urllib.parse import unquote
+
+
+trigger_bucket_name = "dermoclean-image-masked"
+upload_bucket_name = "dermoclean-image-segmented"
 
 def handler(event, context):
     print("Starting Segmentation...")
+
+    print(event)
+
+    print(context)
 
     img, imgPath = retrieve_image(event)
     if (img is None):
@@ -20,22 +30,29 @@ def handler(event, context):
             'body': json.dumps('Invalid image path provided.')
         }
 
-    image_max = ndi.maximum_filter(-img, size=10, mode='constant')
+    grayscale = img[:, :, 0]
+    image_max = ndi.maximum_filter(-grayscale, size=10, mode='constant')
     image_max = image_max > np.quantile(image_max, 0.8)
 
     X = np.array(np.nonzero(image_max)).transpose()
     clustering = DBSCAN(eps=10, min_samples=200).fit(X)
 
-    fig, axs = plt.subplots(ncols = 2, sharex = True, sharey = True)
-    axs[0].imshow(image_max, cmap=plt.cm.gray)
-    clustering.labels_[clustering.labels_ == -1] = max(clustering.labels_)+1
-    axs[1].scatter(X[:,1], X[:,0], c = clustering.labels_) 
+    labels = clustering.labels_
+    labels[labels == -1] = max(labels) + 1
 
-    plt.title("segmentation")
+    mask = np.zeros(grayscale.shape, dtype=int)
+    mask[X[:, 0], X[:, 1]] = labels + 1
 
-    plotImg = io.BytesIO()
-    plt.savefig(plotImg, format='png')
-    if (save_image(plotImg, imgPath)):
+    border = find_boundaries(mask, mode='outer')
+
+    outlined_img = img.copy()
+    outlined_img[border] = [255, 0, 0]
+
+    # plt.title("segmentation")
+
+    # plotImg = io.BytesIO()
+    # plt.savefig(plotImg, format='png')
+    if (save_image(outlined_img, imgPath)):
         return {
             'status': 'False',
             'statusCode': 400,
@@ -47,22 +64,35 @@ def handler(event, context):
         'body': json.dumps('Segmentation Successful!')
     }
 
+def bytes_to_ndarray(bytes):
+    bytes_io = bytearray(bytes)
+    img = Image.open(io.BytesIO(bytes_io))
+    return np.array(img)
+
 def retrieve_image(event):
     # Extract requested image path
-    if ('body' not in event):
-        return (None, None)
+    user_download_img = None
 
-    request_body_str = event['body']
-    request_body = json.loads(request_body_str)
-    user_download_img = request_body['img_path']
+    if ('body' in event):
+        request_body_str = event['body']
+        request_body = json.loads(request_body_str)
+        user_download_img = request_body['img_path']
+    elif ('Records' in event):
+        record_array = event['Records']
+        print(record_array)
+        print(type(record_array))
+        user_download_img = record_array[0]['s3']['object']['key']
 
     if (user_download_img is None):
         return (None, None)
 
-    s3 = boto3.resource('s3')
-    bucket = s3.Bucket(bucket_name)
+    user_download_img = unquote(user_download_img)
 
-    print("Obtained bucket")
+    s3 = boto3.resource('s3')
+    bucket = s3.Bucket(trigger_bucket_name)
+
+    print(f"Obtained bucket {trigger_bucket_name}")
+    print(f"Looking for object {user_download_img}")
 
     #pass your image Name to key
     obj = bucket.Object(key=user_download_img)
@@ -72,21 +102,21 @@ def retrieve_image(event):
     print("Retrieved Image")
 
     # Convert image.
-    img_bytes_array = np.fromstring(img_bytes, dtype=np.uint8)
-    # img_array = cv2.imdecode(img_bytes_array, cv2.IMREAD_COLOR)
+    img_array = bytes_to_ndarray(img_bytes)
 
-    return img_bytes_array, user_download_img
+    return img_array, user_download_img
 
 def save_image(img, img_path):
     client = boto3.client('s3')
-    uploadPath = img_path[:-4] + '_segmentation.png'
+    uploadPath = img_path[:-4] + '_segmentation.jpg'
 
-    # _, encoded_img_bytes = cv2.imencode('.png', img)
-    encoded_img_bytes = img.tobytes()
+    image = Image.fromarray(np.uint8(img), 'RGB')
+    encoded_img_bytes = io.BytesIO()
+    image.save(encoded_img_bytes, format='JPEG')
 
     try:
         print("Uploading image at ", uploadPath)
-        client.put_object(Bucket=bucket_name, Key=uploadPath, Body=encoded_img_bytes)
+        client.put_object(Bucket=upload_bucket_name, Key=uploadPath, Body=encoded_img_bytes.getvalue())
     except Exception as e:
         print(f"Exception: {e}")
         return (True)
