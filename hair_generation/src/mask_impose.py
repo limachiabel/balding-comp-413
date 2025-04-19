@@ -11,22 +11,22 @@ colors = {
 }
 
 def impose_mask(image, mask, hair_color='dark_brown', alpha=0.8):
-    mask_3ch = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+    mask = mask.astype(np.float32) / 255.0  # Normalize mask to [0, 1]
+    mask_3ch = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)  # 3 channels
 
     colored_hairs = np.full_like(image, colors[hair_color], dtype=np.uint8)
 
-    # blend the colored hairs with the original image
-    colored_hairs = cv2.addWeighted(colored_hairs, alpha, image, 1 - alpha, 0)
+    # Blend colored hairs and original image based on mask value and alpha
+    blended = (image * (1 - alpha * mask_3ch) + colored_hairs * (alpha * mask_3ch)).astype(np.uint8)
 
-    final_image = np.where(mask_3ch == 255, colored_hairs, image)
-
-    return final_image
+    return blended
 
 def run():
     image_path = sys.argv[1]
     num_hairs = int(sys.argv[2])
     curvature = float(sys.argv[3])
     hair_color = sys.argv[4]
+    alpha = float(sys.argv[5])
 
     image = cv2.imread(image_path)
     image_width = image.shape[1]
@@ -34,7 +34,7 @@ def run():
 
     mask = generate_bezier_hair_mask(image_width, image_height, num_hairs, curvature)
     saved_name, was_saved = show_mask(mask, prompt_save=True)
-    masked_image = impose_mask(image, mask, hair_color=hair_color)
+    masked_image = impose_mask(image, mask, hair_color=hair_color, alpha=alpha)
     cv2.imshow('masked_image', masked_image)
     cv2.waitKey(0)
     if was_saved:
