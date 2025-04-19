@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ Import navigation hook
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function LoginComponent() {
   const auth = useAuth();
-  const navigate = useNavigate(); // ✅ Initialize navigation
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -101,11 +101,10 @@ export default function LoginComponent() {
         </button>
       </form>
 
-      {/* 🔹 Sign Up Link (Navigates to /signup) */}
       <p style={{ marginTop: "10px", fontSize: "14px", color: "#374151" }}>
         Don't have an account?  
         <span 
-          onClick={() => navigate("/signup")}  // ✅ Redirect to signup page
+          onClick={() => navigate("/signup")} 
           style={{ color: "#3B82F6", cursor: "pointer", marginLeft: "5px" }}
         >
           Sign Up

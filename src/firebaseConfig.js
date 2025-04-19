@@ -7,7 +7,7 @@ const firebaseConfig = {
         apiKey: "AIzaSyC4Louz-sQS3e2YTxXrWdSqWpuQXMoySW0",
         authDomain: "balding-5f1b4.firebaseapp.com",
         projectId: "balding-5f1b4",
-        storageBucket: "balding-5f1b4.firebasestorage.app",
+        storageBucket: "balding-5f1b4.appspot.com",
         messagingSenderId: "799626676958",
         appId: "1:799626676958:web:3a6c66032e498eb149904f",
         measurementId: "G-9469H2TN6T"

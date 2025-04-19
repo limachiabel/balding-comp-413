@@ -1,34 +1,38 @@
 import { useState } from "react";
-import { auth, db } from "../firebaseConfig"; 
+import { auth, db } from "../firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { useAuth } from "../context/AuthContext"; 
-import { useNavigate } from "react-router-dom"; // ✅ Import navigation hook
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 export default function SignupComponent() {
-  const authContext = useAuth(); 
-  const navigate = useNavigate(); // ✅ Initialize navigation
+  const authContext = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [role, setRole] = useState("patient");
   const [error, setError] = useState(null);
 
   const handleSignup = async (e) => {
     e.preventDefault();
-    setError(null); 
+    setError(null);
 
     try {
-      
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-
       await setDoc(doc(db, "users", user.uid), {
         email: user.email,
+        firstName: firstName,
+        lastName: lastName,
+        role: role,
         createdAt: new Date(),
       });
 
-      authContext.login(email, password);
-
+      await authContext.login(email, password);
+      navigate("/");
       console.log("Signup successful!");
     } catch (error) {
       console.error("Signup error:", error.message);
@@ -48,8 +52,8 @@ export default function SignupComponent() {
       <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "16px" }}>
         Sign Up
       </h2>
-      <form 
-        onSubmit={handleSignup} 
+      <form
+        onSubmit={handleSignup}
         style={{
           backgroundColor: "white",
           padding: "24px",
@@ -59,6 +63,39 @@ export default function SignupComponent() {
         }}
       >
         {error && <p style={{ color: "red", textAlign: "center" }}>{error}</p>}
+
+        <div style={{ marginBottom: "16px" }}>
+          <label style={{ display: "block", color: "#374151", marginBottom: "4px" }}>First Name</label>
+          <input
+            type="text"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            required
+            style={{
+              width: "100%",
+              padding: "8px",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px"
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: "16px" }}>
+          <label style={{ display: "block", color: "#374151", marginBottom: "4px" }}>Last Name</label>
+          <input
+            type="text"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            required
+            style={{
+              width: "100%",
+              padding: "8px",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px"
+            }}
+          />
+        </div>
+
         <div style={{ marginBottom: "16px" }}>
           <label style={{ display: "block", color: "#374151", marginBottom: "4px" }}>Email</label>
           <input
@@ -91,6 +128,24 @@ export default function SignupComponent() {
           />
         </div>
 
+        <div style={{ marginBottom: "16px" }}>
+          <label style={{ display: "block", color: "#374151", marginBottom: "4px" }}>Role</label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "8px",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px"
+            }}
+          >
+            <option value="patient">Patient</option>
+            <option value="nurse">Nurse</option>
+            <option value="doctor">Doctor</option>
+          </select>
+        </div>
+
         <button
           type="submit"
           style={{
@@ -108,9 +163,9 @@ export default function SignupComponent() {
         </button>
       </form>
       <p>
-        Already have an account?  
-        <span 
-          onClick={() => navigate("/login")}  // ✅ Redirect to login page
+        Already have an account?
+        <span
+          onClick={() => navigate("/login")}
           style={{ color: "#3B82F6", cursor: "pointer", marginLeft: "5px" }}
         >
           Log In
@@ -119,3 +174,4 @@ export default function SignupComponent() {
     </div>
   );
 }
+
