@@ -7,6 +7,7 @@ Created on Tue Feb 18 11:42:26 2020
 import cv2
 import os
 
+
 def drazor(imagePaths: list[str], outputDirectory: str, inputs: dict = {}):
     """
     Args:
@@ -35,12 +36,6 @@ def drazor(imagePaths: list[str], outputDirectory: str, inputs: dict = {}):
     # maskDir = "../dr_masks/"
     # os.chdir(imageDirectory)
 
-    # Make sure this directory exists.
-    try:
-        os.mkdir(outputDirectory)
-    except FileExistsError:
-        print("DullRazor Mask Directory already exists.")
-
     imagePaths = os.listdir(".")
     # imagePaths = imagePaths[:5] # limit test set
     outputPaths = []
@@ -51,13 +46,14 @@ def drazor(imagePaths: list[str], outputDirectory: str, inputs: dict = {}):
         #Image cropping
         img = image
         # img=image[30:410,30:560]
+        # print(imagePath)
 
         #Gray scale
         grayScale = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
         #Black hat filter
 
-        structElemArgs = [1, (9, 9)]    # Default values
+        structElemArgs = [1, (7, 7)]    # Default values
         if 'getStructuringElement' in inputs:
             structElemArgs = inputs['getStructuringElement']
 
@@ -66,7 +62,7 @@ def drazor(imagePaths: list[str], outputDirectory: str, inputs: dict = {}):
 
         #Gaussian filter
 
-        gaussBlurArgs = [None, (3,3), cv2.BORDER_DEFAULT]
+        gaussBlurArgs = [None, (1,1), cv2.BORDER_DEFAULT]
         if 'GaussianBlur' in inputs:
             gaussBlurArgs = inputs['GaussianBlur']
 
@@ -74,7 +70,7 @@ def drazor(imagePaths: list[str], outputDirectory: str, inputs: dict = {}):
 
         # Binary thresholding (MASK)
 
-        thresholdArgs = [None, 10, 255, cv2.THRESH_BINARY]
+        thresholdArgs = [None, 30, 255, cv2.THRESH_BINARY]
         if 'threshold' in inputs:
             thresholdArgs = inputs['threshold']
 
@@ -83,14 +79,6 @@ def drazor(imagePaths: list[str], outputDirectory: str, inputs: dict = {}):
 
         #Replace pixels of the mask
         # dst = cv2.inpaint(img,mask,6,cv2.INPAINT_TELEA)
-
-        # #Display images
-        # cv2.imshow("Original image",image)
-        # #cv2.imshow("Cropped image",img)
-        # #cv2.imshow("Gray Scale image",grayScale)
-        # #cv2.imshow("Blackhat",blackhat)
-        # cv2.imshow("Binary mask",mask)
-        # cv2.imshow("Clean image",dst)
 
         maskPath = (outputDirectory + imagePath)[:-3] + "png"
         outputPaths.append(maskPath)
@@ -101,3 +89,46 @@ def drazor(imagePaths: list[str], outputDirectory: str, inputs: dict = {}):
         cv2.destroyAllWindows()
 
     return outputPaths
+
+if __name__ == "__main__":
+    inputs = {}
+
+    imageDirectory = "./test_data/image_testset"
+    os.chdir(imageDirectory)
+    imagePaths = os.listdir(".")
+
+    trialDirectory = "../dr_trials/"
+
+    for i in range(1):
+        vary_i = (2 * i) + 1
+        gaussBlur = [None, (vary_i, vary_i), cv2.BORDER_DEFAULT]
+        inputs["GaussianBlur"] = gaussBlur
+
+        for j in range(10):
+            vary_j = 10 * j
+            thresholdArgs = [None, vary_j, 255, cv2.THRESH_BINARY]
+            inputs["threshold"] = thresholdArgs
+
+            for k in range(10):
+                vary_k = i + 1
+                structElem = [1, (vary_k, vary_k)]
+                inputs["getStructuringElement"] = structElem
+
+                trialName = f"trial-{i}{j}{k}"
+                outputDirectory = trialDirectory + trialName + "/"
+                trialInfo = outputDirectory + f"trial-{i}-info.txt"
+
+                try:
+                    os.mkdir(outputDirectory)
+                except FileExistsError:
+                    pass
+
+                try:
+                    with open(trialInfo, "x") as file:
+                        file.write(trialName + "\n")
+                        file.write("Inputs used: \n")
+                        file.write(str(inputs))
+                except FileExistsError:
+                    pass
+
+                drazor(imagePaths, outputDirectory, inputs)
