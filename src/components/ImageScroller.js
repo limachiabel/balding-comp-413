@@ -39,43 +39,67 @@ export default function ImageScroller() {
   const loadImages = async (prefixEmail) => {
     console.log(prefixEmail);
     if (prefixEmail === userEmail) {
+      // 1) List both root‐level objects and subfolders under your email
       const resp = await s3.listObjectsV2({
-        Bucket: S3_BUCKET,
-        Prefix: `${prefixEmail}/`,
-        Delimiter: "/",              // tells S3 to give us only root‐level files
+        Bucket:    S3_BUCKET,
+        Prefix:    `${userEmail}/`,
+        Delimiter: "/",    // gives us resp.Contents (root files) + resp.CommonPrefixes (folders)
       }).promise();
-
-      const urls = (resp.Contents || [])
+  
+      // 2) Start building a map of carousels
+      const newMap = {};
+  
+      // 2a) Any root‐level images
+      const rootUrls = (resp.Contents || [])
         .filter(o => /\.(jpe?g|png)$/i.test(o.Key))
-        .map(o =>
-          s3.getSignedUrl("getObject", {
+        .map(o => s3.getSignedUrl("getObject", {
+          Bucket: S3_BUCKET,
+          Key:    o.Key,
+          Expires: 300,
+        }));
+      if (rootUrls.length) {
+        newMap.root = rootUrls;
+      }
+  
+      // 2b) Now each subfolder under your email
+      const folderNames = (resp.CommonPrefixes || []).map(p =>
+        p.Prefix.replace(`${userEmail}/`, "").replace(/\/$/, "")
+      );
+      for (let folder of folderNames) {
+        const fResp = await s3.listObjectsV2({
+          Bucket: S3_BUCKET,
+          Prefix: `${userEmail}/${folder}/`,
+        }).promise();
+  
+        const urls = (fResp.Contents || [])
+          .filter(o => /\.(jpe?g|png)$/i.test(o.Key))
+          .map(o => s3.getSignedUrl("getObject", {
             Bucket: S3_BUCKET,
             Key:    o.Key,
             Expires: 300,
-          })
-        );
-
-      // put them in a single “root” strip
-      setImagesByFolder({ root: urls });
+          }));
+  
+        if (urls.length) {
+          newMap[folder] = urls;
+        }
+      }
+  
+      // 3) Apply the map and reset selection state
+      setImagesByFolder(newMap);
       setSelectedForLambda([]);
       setSelectedImage(null);
       setNoteDisplay(null);
-
-      // (your existing consent check can stay here)
-      const ownerEmail = prefixEmail.split("/")[0];
+  
+      // 4) Consent check on your email prefix
       try {
         const listResp = await s3.listObjectsV2({
           Bucket: S3_BUCKET,
-          Prefix: `${ownerEmail}/`,
+          Prefix: `${userEmail}/consentform.json`,
         }).promise();
-        const found = (listResp.Contents || []).some(
-          o => o.Key === `${ownerEmail}/consentform.json`
-        );
-        setConsentExists(found);
+        setConsentExists((listResp.Contents || []).length > 0);
       } catch {
         setConsentExists(false);
       }
-
       return;
     }
     const resp = await s3
@@ -205,6 +229,8 @@ setConsentExists(false);
     if (!userInfo.uid) return;
     setConnections(userInfo.connections || []);
   }, [userInfo]);  
+
+  
 
 
   const handlePatientClick = (email) => {
@@ -349,7 +375,18 @@ setConsentExists(false);
         Bucket:     S3_BUCKET,
         CopySource: `${maskedBucket}/${segSourceKey}`, 
         Key:        destKey,
-      }).promise();
+      })
+        .promise()
+        .then(() => {
+          console.log(`Copied masked ${segSourceKey} → ${destKey}`);
+        })
+        .catch(err => {
+          console.error(
+            `❌ Failed to copy masked ${segSourceKey} → ${destKey}:`,
+            err
+          );
+        });
+      
     }
     const prefix = selectedConnectionEmail
       ? `${selectedConnectionEmail}/${userEmail}`

@@ -40,31 +40,44 @@ export default function PatientList({
   }, [connections]);
 
 
-    const handleAdd = async (role) => {
-      const email = prompt(`Enter the new ${role}’s email:`)?.trim().toLowerCase();
-      if (!email || email === meEmail.toLowerCase()) return;
+  const handleAdd = async (role) => {
+    const email = prompt(`Enter the new ${role}’s email:`)?.trim().toLowerCase();
+    if (!email || email === meEmail.toLowerCase()) return;
   
-      try {
+    try {
 
-        const urefA = doc(db, "users", meUid);
-        await updateDoc(urefA, { connections: arrayUnion(email) });
+      const usersRef = collection(db, "users");
+      const q        = query(usersRef, where("email", "==", email));
+      const snap     = await getDocs(q);
   
-     
-        const usersRef = collection(db, "users");
-        const q        = query(usersRef, where("email", "==", email));
-        const snap     = await getDocs(q);
-        if (!snap.empty) {
-          const bDoc = snap.docs[0];
-          const urefB = doc(db, "users", bDoc.id);
-          await updateDoc(urefB, { connections: arrayUnion(meEmail) });
-        }
-  
-        setConnections(cs => Array.from(new Set([...cs, email])));
-      } catch (err) {
-        console.error("Error adding connection:", err);
-        alert("Failed to add connection");
+      if (snap.empty) {
+        alert(`No user found with email ${email}`);
+        return;
       }
-    };
+  
+      const bDoc      = snap.docs[0];
+      const userData  = bDoc.data();
+  
+      if (userData.role !== role) {
+        alert(
+          `Role mismatch: user ${email} is registered as "${userData.role}", not "${role}".`
+        );
+        return;
+      }
+  
+      const urefA = doc(db, "users", meUid);
+      await updateDoc(urefA, { connections: arrayUnion(email) });
+  
+      const urefB = doc(db, "users", bDoc.id);
+      await updateDoc(urefB, { connections: arrayUnion(meEmail) });
+  
+
+      setConnections(cs => Array.from(new Set([...cs, email])));
+    } catch (err) {
+      console.error("Error adding connection:", err);
+      alert("Failed to add connection");
+    }
+  };
   
 
   const handleRemove = async (email) => {
