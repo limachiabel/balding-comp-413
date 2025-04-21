@@ -37,15 +37,14 @@ export default function ImageScroller() {
   const isNurse   = role === "nurse";
   const isPatient = role === "patient";
   const loadImages = async (prefixEmail) => {
-    console.log("Loading images for:", prefixEmail);
-  
+    console.log(prefixEmail);
     if (prefixEmail === userEmail) {
       const resp = await s3.listObjectsV2({
         Bucket: S3_BUCKET,
-        Prefix: `${userEmail}/`,
-        Delimiter: "/",       
+        Prefix: `${prefixEmail}/`,
+        Delimiter: "/",              // tells S3 to give us only root‐level files
       }).promise();
-  
+
       const urls = (resp.Contents || [])
         .filter(o => /\.(jpe?g|png)$/i.test(o.Key))
         .map(o =>
@@ -55,84 +54,93 @@ export default function ImageScroller() {
             Expires: 300,
           })
         );
-  
+
+      // put them in a single “root” strip
       setImagesByFolder({ root: urls });
       setSelectedForLambda([]);
       setSelectedImage(null);
       setNoteDisplay(null);
-  
-      const ownerEmail = userEmail;
+
+      // (your existing consent check can stay here)
+      const ownerEmail = prefixEmail.split("/")[0];
       try {
         const listResp = await s3.listObjectsV2({
           Bucket: S3_BUCKET,
           Prefix: `${ownerEmail}/`,
         }).promise();
-  
         const found = (listResp.Contents || []).some(
           o => o.Key === `${ownerEmail}/consentform.json`
         );
         setConsentExists(found);
-      } catch (err) {
-        console.error("Failed consent check:", err);
+      } catch {
         setConsentExists(false);
       }
+
       return;
     }
-  
-   
-    const resp = await s3.listObjectsV2({
-      Bucket: S3_BUCKET,
-      Prefix: `${prefixEmail}/`,
-      Delimiter: "/",
-    }).promise();
-  
-
-    const folderNames = (resp.CommonPrefixes || []).map(p =>
-      p.Prefix
-        .replace(`${prefixEmail}/`, "")
-        .replace(/\/$/, "")
-    );
-  
-    const newMap = {};
-  
-    for (let folder of folderNames) {
-      const fResp = await s3.listObjectsV2({
+    const resp = await s3
+      .listObjectsV2({
         Bucket: S3_BUCKET,
-        Prefix: `${prefixEmail}/${folder}/`,
-      }).promise();
-  
+        Prefix: `${prefixEmail}/`,
+        Delimiter: "/",
+      })
+       .promise();
+
+    // extract folder names (strip trailing '/')
+    const folderNames = (resp.CommonPrefixes || []).map(p =>
+      p.Prefix.replace(`${prefixEmail}/`, "").replace(/\/$/, "")
+    );
+    console.log(folderNames.length);
+    console.log("here");
+    const newMap = {};
+    // 2️⃣ for each folder, list its images
+    for (let folder of folderNames) {
+      console.log(folder);
+      console.log(prefixEmail);
+      const fResp = await s3
+        .listObjectsV2({
+          Bucket: S3_BUCKET,
+          Prefix: `${prefixEmail}/${folder}/`,
+        })
+        .promise();
+
       newMap[folder] = (fResp.Contents || [])
         .filter(o => /\.(jpe?g|png)$/i.test(o.Key))
         .map(o =>
           s3.getSignedUrl("getObject", {
             Bucket: S3_BUCKET,
-            Key:    o.Key,
+            Key: o.Key,
             Expires: 300,
           })
         );
     }
-  
+
     setImagesByFolder(newMap);
+     // reset selections/notes
     setSelectedForLambda([]);
     setSelectedImage(null);
     setNoteDisplay(null);
-  
+    
     const ownerEmail = prefixEmail.split("/")[0];
-    try {
-      const listResp = await s3.listObjectsV2({
-        Bucket: S3_BUCKET,
-        Prefix: `${ownerEmail}/`,
-      }).promise();
-  
-      const found = (listResp.Contents || []).some(
-        o => o.Key === `${ownerEmail}/consentform.json`
-      );
-      setConsentExists(found);
-    } catch (err) {
-      console.error("Failed consent check:", err);
-      setConsentExists(false);
-    }
-  };
+try {
+const listResp = await s3
+.listObjectsV2({
+  Bucket: S3_BUCKET,
+  Prefix: `${ownerEmail}/`,
+})
+.promise();
+
+// look for exactly ownerEmail/consentform.json
+const found = (listResp.Contents || []).some(
+(o) => o.Key === `${ownerEmail}/consentform.json`
+);
+setConsentExists(found);
+} catch (err) {
+console.error("Failed to list objects for consent check:", err);
+setConsentExists(false);
+}
+  }
+
   
        
        const handleConsentUpload = async (e) => {
@@ -262,7 +270,7 @@ export default function ImageScroller() {
       const key = decodeURIComponent(new URL(url).pathname.slice(1));
       const fileName = key.split("/").pop();
       const base     = key.replace(/\.(jpe?g|png)$/i, "");
-
+      console.log(key);
       await s3.copyObject({
                Bucket: S3_BUCKET,
                CopySource: `${S3_BUCKET}/${key}`,
@@ -298,12 +306,59 @@ export default function ImageScroller() {
 
 
   const handleLambda = async () => {
-    const keys = selectedForLambda.map((u) =>
+   
+    const keys = selectedForLambda.map(u =>
       decodeURIComponent(new URL(u).pathname.slice(1))
     );
+  
+
     await lambda(keys);
-    await loadImages(userEmail);
+  
+    const maskedBucket = "dermoclean-image-segmented";
+  
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+  
+
+
+    for (const key of keys) {
+
+      const parts    = key.split("/");
+      const filename = parts.pop();            
+      const folder   = parts.join("/");        
+    
+  
+      const dotIndex = filename.lastIndexOf(".");
+      const base     = filename.slice(0, dotIndex); 
+      const ext      = filename.slice(dotIndex);      
+    
+      
+      const segFilename  = `${base}_segmentation${ext}`; 
+      const segSourceKey = `${folder}/${segFilename}`;
+    
+      
+      const newFolder  = `${folder}-segmented`;
+      const destKey    = `${newFolder}/${filename}`;
+    
+      console.log(`Copying from masked: ${maskedBucket}/${segSourceKey}`);
+      console.log(`Copying into main:  ${S3_BUCKET}/${destKey}`);
+      console.log("HEREEEE");
+      console.log(destKey);
+      await sleep(10000);
+      await s3.copyObject({
+        Bucket:     S3_BUCKET,
+        CopySource: `${maskedBucket}/${segSourceKey}`, 
+        Key:        destKey,
+      }).promise();
+    }
+    const prefix = selectedConnectionEmail
+      ? `${selectedConnectionEmail}/${userEmail}`
+      : userEmail;
+  
+    await loadImages(prefix);
   };
+  
+  
 
   async function fetchNote(url) {
     try {
