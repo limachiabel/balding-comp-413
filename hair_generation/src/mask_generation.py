@@ -57,7 +57,10 @@ def generate_bezier_hair_mask(width=512, height=512, num_hairs=200, curvature_me
                 intensity = 255
 
             intensity = int(np.clip(intensity, 0, 255))
-            cv2.line(mask, start_point, end_point, color=(intensity,), thickness=thickness)
+            if i / len(curve_points) < 0.05 and thickness > 1:
+                cv2.line(mask, start_point, end_point, color=(intensity,), thickness=thickness+1)
+            else:
+                cv2.line(mask, start_point, end_point, color=(intensity,), thickness=thickness)
 
     mask = add_gaussian_noise(mask, mean=noise_factor, std=0.1) 
     return mask

@@ -33,24 +33,14 @@ def run():
     image_height = image.shape[0]
 
     mask = generate_bezier_hair_mask(image_width, image_height, num_hairs, curvature)
-    saved_name, was_saved = show_mask(mask, prompt_save=True)
+    # saved_name, was_saved = show_mask(mask, prompt_save=False)
     masked_image = impose_mask(image, mask, hair_color=hair_color, alpha=alpha)
     cv2.imshow('masked_image', masked_image)
     cv2.waitKey(0)
-    if was_saved:
-        cv2.imwrite(f'../images/output/{saved_name}_imposed.png', masked_image)
+    # if was_saved:
+    #     cv2.imwrite(f'../images/output/{saved_name}_imposed.png', masked_image)
     cv2.destroyAllWindows()
-    cv2.imwrite('hair_generation/images/output/masked_image.png', masked_image)
+    # cv2.imwrite('hair_generation/images/output/masked_image.png', masked_image)
 
 if __name__ == '__main__':
-    # image = cv2.imread('hair_generation/images/base_images/sampleimageagain.png')
-    # image_width = image.shape[1]
-    # image_height = image.shape[0]   
-
-    # mask = generate_bezier_hair_mask(image_width, image_height, 30, curvature=0.3)
-    # masked_image = impose_mask(image, mask, hair_color=random.choice(hair_colors))
-    # cv2.imshow('masked_image', masked_image)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    # cv2.imwrite('hair_generation/images/output/masked_image2.png', masked_image)
     run()
