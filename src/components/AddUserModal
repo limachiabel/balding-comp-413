@@ -1,0 +1,102 @@
+// AddUserModal.js
+import React, { useState } from "react";
+import { db } from "../firebaseConfig";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+
+export default function AddUserModal({ role, onClose }) {
+  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [error, setError] = useState("");
+
+  const handleAddUser = async () => {
+    if (!email || !firstName || !lastName) {
+      setError("All fields are required.");
+      return;
+    }
+    const userDocRef = doc(db, "users", email);
+    const userDocSnap = await getDoc(userDocRef);
+    if (userDocSnap.exists()) {
+      setError("User with this email already exists.");
+      return;
+    }
+    try {
+      await setDoc(userDocRef, { email, firstName, lastName, role });
+      onClose();
+    } catch (err) {
+      console.error("Error adding user", err);
+      setError("Error adding user. Please try again.");
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        backgroundColor: "rgba(0,0,0,0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "white",
+          padding: "1rem",
+          borderRadius: "8px",
+          minWidth: "300px",
+        }}
+      >
+        <h2 style={{ marginBottom: "1rem" }}>
+          Add {role.charAt(0).toUpperCase() + role.slice(1)}
+        </h2>
+        {error && <div style={{ color: "red", marginBottom: "8px" }}>{error}</div>}
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{ width: "100%", padding: "0.5rem", marginBottom: "8px" }}
+        />
+        <input
+          type="text"
+          placeholder="First Name"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+          style={{ width: "100%", padding: "0.5rem", marginBottom: "8px" }}
+        />
+        <input
+          type="text"
+          placeholder="Last Name"
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
+          style={{ width: "100%", padding: "0.5rem", marginBottom: "8px" }}
+        />
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+          <button onClick={onClose} style={{ padding: "0.5rem 1rem" }}>
+            Cancel
+          </button>
+          <button
+            onClick={handleAddUser}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "#2563eb",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+            }}
+          >
+            Add {role.charAt(0).toUpperCase() + role.slice(1)}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
