@@ -110,7 +110,7 @@ if __name__ == "__main__":
             inputs["threshold"] = thresholdArgs
 
             for k in range(10):
-                vary_k = i + 1
+                vary_k = k + 1
                 structElem = [1, (vary_k, vary_k)]
                 inputs["getStructuringElement"] = structElem
 
